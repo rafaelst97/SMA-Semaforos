@@ -11,62 +11,57 @@ package semaforo;
 import jade.core.Profile;
 import jade.core.ProfileImpl;
 import jade.core.Runtime;
-import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
+import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
+import javax.swing.*;
 
 public class TrafficSimulationApp {
-    public static void main(String[] args) {
-        // Inicializar a interface gráfica
-        TrafficIntersectionGUI gui = new TrafficIntersectionGUI();
-        gui.setVisible(true);  // Certifique-se de que a GUI esteja visível
 
-        // Inicializar o ambiente JADE
+    private static final int NUM_CARS = 10; // Número inicial de carros
+
+    public static void main(String[] args) {
+        // Inicializa o JADE e a GUI
+        startJade();
+        startGUI();
+    }
+
+    private static void startJade() {
+        // Configurações do contêiner principal do JADE
         Runtime rt = Runtime.instance();
         Profile p = new ProfileImpl();
-        AgentContainer mainContainer = rt.createMainContainer(p);
+        ContainerController container = rt.createMainContainer(p);
 
         try {
-            // Iniciar o agente coordenador
-            AgentController coordinator = mainContainer.createNewAgent(
-                    "Semaforo", 
-                    "semaforo.CoordinatorAgent", 
-                    null
-            );
-            coordinator.start();
+            // Inicializa o agente coordenador
+            AgentController coordinatorAgent = container.createNewAgent("CoordinatorAgent", "CoordinatorAgent", null);
+            coordinatorAgent.start();
 
-            // Iniciar os agentes de semáforo para cada direção (N, S, E, W)
-            String[] directions = {"N", "S", "E", "W"};
-            for (String direction : directions) {
-                Object[] trafficLightArgs = new Object[]{direction, gui};
-                AgentController trafficLight = mainContainer.createNewAgent(
-                        direction + "_Semaforo", 
-                        "semaforo.TrafficLightAgent", 
-                        trafficLightArgs
-                );
-                trafficLight.start();
-            }
+            // Inicializa o agente de semáforo
+            AgentController trafficLightAgent = container.createNewAgent("TrafficLightAgent", "TrafficLightAgent", null);
+            trafficLightAgent.start();
 
-            // Iniciar o agente de radar
-            AgentController radar = mainContainer.createNewAgent(
-                    "Radar", 
-                    "semaforo.RadarAgent", 
-                    null
-            );
-            radar.start();
+            // Inicializa o agente radar
+            AgentController radarAgent = container.createNewAgent("RadarAgent", "RadarAgent", null);
+            radarAgent.start();
 
-            // Iniciar alguns agentes de carro (opcional, para simulação)
-            for (int i = 1; i <= 3; i++) {
-                AgentController car = mainContainer.createNewAgent(
-                        "Carro" + i, 
-                        "semaforo.CarAgent", 
-                        null
-                );
-                car.start();
+            // Inicializa os agentes de carros
+            for (int i = 0; i < NUM_CARS; i++) {
+                String carName = "CarAgent_" + i;
+                AgentController carAgent = container.createNewAgent(carName, "CarAgent", null);
+                carAgent.start();
             }
 
         } catch (StaleProxyException e) {
             e.printStackTrace();
         }
+    }
+
+    private static void startGUI() {
+        // Inicializa a interface gráfica Swing para o cruzamento
+        SwingUtilities.invokeLater(() -> {
+            TrafficIntersectionGUI gui = new TrafficIntersectionGUI();
+            gui.setVisible(true);
+        });
     }
 }

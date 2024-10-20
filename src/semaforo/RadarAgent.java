@@ -9,75 +9,59 @@ package semaforo;
  * @author Rafael
  */
 import jade.core.Agent;
-import jade.core.behaviours.TickerBehaviour;
-import jade.lang.acl.ACLMessage;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 public class RadarAgent extends Agent {
-    private static final long serialVersionUID = 1L;
-    private final Map<String, Integer> carCounts = new HashMap<>();
-    private static final int MONITOR_INTERVAL = 1000;
+
+    // Conjunto para armazenar as placas dos carros infratores
+    private Set<String> violators;
 
     @Override
     protected void setup() {
-        System.out.println("RadarAgent " + getLocalName() + " iniciado.");
-        carCounts.put("N", 0);
-        carCounts.put("S", 0);
-        carCounts.put("E", 0);
-        carCounts.put("W", 0);
+        violators = new HashSet<>();
+        System.out.println("RadarAgent iniciado.");
 
-        addBehaviour(new TickerBehaviour(this, MONITOR_INTERVAL) {
-            protected void onTick() {
-                simulateCarCount();
-                sendCarCountToCoordinator();
-            }
-        });
+        // Adiciona comportamento cíclico para monitorar infrações de trânsito
+        addBehaviour(new MonitorInfractionsBehaviour());
+    }
 
-        addBehaviour(new CyclicBehaviour() {
-            public void action() {
-                MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
-                ACLMessage msg = receive(mt);
-                if (msg != null) {
-                    String content = msg.getContent();
-                    if (content.startsWith("CLEAR_CARS")) {
-                        String direction = content.split(":")[1];
-                        carCounts.put(direction, 0); // Zerar o número de carros na direção especificada
-                        System.out.println("RadarAgent limpou a contagem de carros na direção: " + direction);
+    // Comportamento para monitorar infrações
+    private class MonitorInfractionsBehaviour extends CyclicBehaviour {
+        @Override
+        public void action() {
+            // Recebe mensagens de carros
+            ACLMessage msg = receive();
+            if (msg != null) {
+                String content = msg.getContent();
+                
+                // Verifica se a mensagem indica uma infração
+                if (content.startsWith("INFRAÇÃO")) {
+                    // Extrai a placa do carro infrator
+                    String plate = content.split(" ")[1];
+                    int lane = Integer.parseInt(content.split(" ")[3]);
+
+                    // Adiciona a placa à lista de infratores
+                    if (violators.add(plate)) {
+                        System.out.println("Radar detectou uma infração: Carro " + plate + 
+                                           " passou no sinal vermelho na via " + lane);
+
+                        // Exibe as infrações na interface gráfica (simulado aqui com print)
+                        displayViolation(plate, lane);
                     }
-                } else {
-                    block();
                 }
+            } else {
+                // Se não houver mensagens, bloqueia até a próxima mensagem
+                block();
             }
-        });
-
-    }
-
-    private void simulateCarCount() {
-        for (String direction : carCounts.keySet()) {
-            int currentCount = carCounts.get(direction);
-            carCounts.put(direction, currentCount + (int) (Math.random() * 3));
         }
-    }
 
-    private void sendCarCountToCoordinator() {
-        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        msg.addReceiver(getAID("CoordinatorAgent"));
-        StringBuilder content = new StringBuilder("RADAR_UPDATE:");
-        for (Map.Entry<String, Integer> entry : carCounts.entrySet()) {
-            content.append(entry.getKey()).append(":").append(entry.getValue()).append(";");
+        // Método para exibir a infração na interface gráfica
+        private void displayViolation(String plate, int lane) {
+            // Aqui você pode integrar com a interface gráfica para exibir a infração na área específica
+            System.out.println("Exibindo infração: " + plate + " na via " + lane);
         }
-        msg.setContent(content.toString());
-        send(msg);
-        System.out.println("RadarAgent enviou atualização para o coordenador: " + content);
     }
 }

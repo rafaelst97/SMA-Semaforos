@@ -10,59 +10,60 @@ package semaforo;
  */
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
+import jade.core.behaviours.OneShotBehaviour;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.Queue;
+import jade.wrapper.AgentController;
+import jade.wrapper.ContainerController;
+import jade.wrapper.StaleProxyException;
+import javax.swing.SwingUtilities;
 
 public class CoordinatorAgent extends Agent {
-    private static final long serialVersionUID = 1L;
-
-    // Armazenar o número de carros em espera para cada semáforo
-    private final Map<String, Integer> waitingCarsMap = new HashMap<>();
-    // Fila de prioridade para gerenciar semáforos que precisam de abertura prioritária
-    private final Queue<String> priorityQueue = new PriorityQueue<>();
-    private String currentGreenLight = null; // Semáforo atualmente aberto
 
     @Override
     protected void setup() {
-        System.out.println("CoordinatorAgent " + getLocalName() + " iniciado.");
+        System.out.println("CoordinatorAgent iniciado.");
 
-        // Inicializar o número de carros para cada direção
-        waitingCarsMap.put("N", 0);
-        waitingCarsMap.put("S", 0);
-        waitingCarsMap.put("E", 0);
-        waitingCarsMap.put("W", 0);
+        // Inicializa a GUI na thread de eventos do Swing
+        SwingUtilities.invokeLater(() -> {
+            TrafficIntersectionGUI gui = new TrafficIntersectionGUI();
+            gui.setVisible(true);
+        });
 
-        // Comportamento cíclico para receber mensagens dos semáforos e radares
-        addBehaviour(new CyclicBehaviour() {
+        // Comportamento para criar outros agentes
+        addBehaviour(new OneShotBehaviour() {
+            @Override
             public void action() {
-                // Template para mensagens de semáforo
-                MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
-                ACLMessage msg = receive(mt);
-                
+                createAgents();
+            }
+        });
+
+        // Comportamento para gerenciar mensagens recebidas
+        addBehaviour(new CyclicBehaviour() {
+            @Override
+            public void action() {
+                ACLMessage msg = receive();
                 if (msg != null) {
-                    // Processar a mensagem recebida
                     String content = msg.getContent();
-                    String[] parts = content.split(":");
-                    
-                    if (parts[0].equals("TRAFFIC_LIGHT")) {
-                        String direction = parts[1];
-                        boolean isGreen = parts[2].equals("GREEN");
-                        int carsWaiting = Integer.parseInt(parts[4]);
-                        
-                        // Atualizar o número de carros esperando
-                        waitingCarsMap.put(direction, carsWaiting);
+                    System.out.println("CoordinatorAgent recebeu: " + content);
 
-                        // Verificar se é necessária prioridade para este semáforo
-                        if (carsWaiting >= 3 && !priorityQueue.contains(direction)) {
-                            priorityQueue.add(direction);
-                        }
+                    // Verifica se a mensagem é sobre o semáforo
+                    if (content.startsWith("SEMAFORO_")) {
+                        String[] parts = content.split(" ");
+                        String direction = parts[0].replace("SEMAFORO_", "");
+                        String state = parts[1];
+                        System.out.println("Semáforo " + direction + " agora está " + state);
+                    }
 
-                        // Tomar decisão sobre qual semáforo deve abrir
-                        decideNextGreenLight();
+                    // Verifica se a mensagem é sobre o movimento do carro
+                    if (content.startsWith("VERIFICAR_SEMAFORO")) {
+                        String[] parts = content.split(" ");
+                        int lane = Integer.parseInt(parts[1]);
+
+                        // Responde ao carro com o estado do semáforo (simulação simples)
+                        ACLMessage response = msg.createReply();
+                        response.setContent("VERDE"); // Apenas para testes, ajuste conforme necessário
+                        send(response);
+                        System.out.println("CoordinatorAgent respondeu com 'VERDE' para a via " + lane);
                     }
                 } else {
                     block();
@@ -71,42 +72,42 @@ public class CoordinatorAgent extends Agent {
         });
     }
 
-    // Método para decidir qual semáforo deve abrir
-    private void decideNextGreenLight() {
-        // Se há um semáforo em prioridade, abrir esse
-        if (!priorityQueue.isEmpty()) {
-            String nextGreen = priorityQueue.poll();
-            if (!nextGreen.equals(currentGreenLight)) {
-                sendGreenLightCommand(nextGreen);
+    // Método para criar outros agentes
+    private void createAgents() {
+        ContainerController container = getContainerController();
+
+        try {
+            // Criar agentes de semáforo
+            AgentController nTrafficLight = container.createNewAgent("N_TrafficLight", "semaforo.TrafficLightAgent", new Object[]{"N"});
+            nTrafficLight.start();
+            System.out.println("Agente N_TrafficLight criado.");
+
+            AgentController sTrafficLight = container.createNewAgent("S_TrafficLight", "semaforo.TrafficLightAgent", new Object[]{"S"});
+            sTrafficLight.start();
+            System.out.println("Agente S_TrafficLight criado.");
+
+            AgentController eTrafficLight = container.createNewAgent("E_TrafficLight", "semaforo.TrafficLightAgent", new Object[]{"E"});
+            eTrafficLight.start();
+            System.out.println("Agente E_TrafficLight criado.");
+
+            AgentController wTrafficLight = container.createNewAgent("W_TrafficLight", "semaforo.TrafficLightAgent", new Object[]{"W"});
+            wTrafficLight.start();
+            System.out.println("Agente W_TrafficLight criado.");
+
+            // Criar agente radar
+            AgentController radarAgent = container.createNewAgent("Radar", "semaforo.RadarAgent", null);
+            radarAgent.start();
+            System.out.println("Agente Radar criado.");
+
+            // Criar agentes de carro
+            for (int i = 1; i <= 3; i++) {
+                AgentController carAgent = container.createNewAgent("Car" + i, "semaforo.CarAgent", null);
+                carAgent.start();
+                System.out.println("Agente Car" + i + " criado.");
             }
-        } else {
-            // Ciclo normal de alternância
-            String[] directions = {"N", "E", "S", "W"};
-            for (String direction : directions) {
-                if (!direction.equals(currentGreenLight)) {
-                    sendGreenLightCommand(direction);
-                    break;
-                }
-            }
+
+        } catch (StaleProxyException e) {
+            e.printStackTrace();
         }
     }
-
-    // Enviar comando para abrir o semáforo
-    private void sendGreenLightCommand(String direction) {
-        ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
-        msg.addReceiver(getAID(direction + "_Semaforo"));
-        msg.setContent("OPEN");
-        send(msg);
-
-        // Notificar o radar para limpar a fila de carros
-        ACLMessage clearMsg = new ACLMessage(ACLMessage.INFORM);
-        clearMsg.addReceiver(getAID("Radar"));
-        clearMsg.setContent("CLEAR_CARS:" + direction);
-        send(clearMsg);
-
-        // Atualizar o semáforo atualmente aberto
-        currentGreenLight = direction;
-    }
-    
 }
-

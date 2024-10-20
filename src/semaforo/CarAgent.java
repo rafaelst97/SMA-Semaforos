@@ -9,73 +9,92 @@ package semaforo;
  * @author Rafael
  */
 import jade.core.Agent;
-import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
-
 import java.util.Random;
 
 public class CarAgent extends Agent {
-    private static final long serialVersionUID = 1L;
-    
-    // Direção atual do carro (N, S, E, W)
-    private String direction;
-    private boolean waiting = false; // Indica se o carro está aguardando no semáforo
+
+    private String plate; // Placa do carro
+    private boolean isOffender; // Define se o carro é um infrator
+    private int currentLane; // Via atual do carro
+    private Random random;
 
     @Override
     protected void setup() {
-        System.out.println("CarAgent " + getLocalName() + " iniciado.");
+        random = new Random();
+        
+        // Gera uma placa aleatória para o carro
+        plate = generateRandomPlate();
 
-        // Escolher uma direção inicial aleatoriamente
-        direction = getRandomDirection();
+        // Define aleatoriamente se o carro é um infrator
+        isOffender = random.nextBoolean();
 
-        // Comportamento cíclico para simular o movimento do carro
-        addBehaviour(new CyclicBehaviour() {
-            public void action() {
-                if (waiting) {
-                    // Verificar se o semáforo está verde para a direção atual
-                    MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
-                    ACLMessage msg = receive(mt);
+        // Define aleatoriamente a via em que o carro será gerado
+        currentLane = random.nextInt(4) + 1;
 
-                    if (msg != null && msg.getContent().equals("GREEN:" + direction)) {
-                        // Semáforo está verde, o carro pode atravessar
-                        System.out.println(getLocalName() + " atravessou o cruzamento para " + direction);
-                        waiting = false; // O carro não está mais esperando
-                        
-                        // Reiniciar o agente para uma nova direção
-                        addBehaviour(new OneShotBehaviour() {
-                            public void action() {
-                                direction = getRandomDirection();
-                                System.out.println(getLocalName() + " agora se movendo para " + direction);
-                            }
-                        });
-                    } else {
-                        block();
+        System.out.println("Carro criado: " + plate + " na via " + currentLane +
+                (isOffender ? " (Infrator)" : " (Respeita Sinal)"));
+
+        // Comportamento de movimento do carro
+        addBehaviour(new CarMovementBehaviour(this, 2000)); // Verifica o movimento a cada 2 segundos
+    }
+
+    private String generateRandomPlate() {
+        String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        StringBuilder plate = new StringBuilder();
+
+        // Gera 3 letras aleatórias
+        for (int i = 0; i < 3; i++) {
+            plate.append(letters.charAt(random.nextInt(letters.length())));
+        }
+
+        // Gera 4 dígitos aleatórios
+        plate.append("-");
+        for (int i = 0; i < 4; i++) {
+            plate.append(random.nextInt(10));
+        }
+
+        return plate.toString();
+    }
+
+    // Comportamento do movimento do carro
+    private class CarMovementBehaviour extends TickerBehaviour {
+        public CarMovementBehaviour(Agent a, long period) {
+            super(a, period);
+        }
+
+        @Override
+        protected void onTick() {
+            // Envia mensagem para o agente coordenador para verificar o semáforo da via atual
+            ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
+            msg.addReceiver(getAID("Coordinator"));
+            msg.setContent("VERIFICAR_SEMAFORO " + currentLane);
+            send(msg);
+
+            // Recebe a resposta do semáforo
+            ACLMessage response = receive();
+            if (response != null) {
+                String content = response.getContent();
+                if (content.equals("VERDE") || (content.equals("VERMELHO") && isOffender)) {
+                    // Se o semáforo estiver verde ou o carro for infrator, ele passa
+                    System.out.println(plate + " está passando pela via " + currentLane);
+
+                    // Notifica o radar se passar no sinal vermelho
+                    if (content.equals("VERMELHO") && isOffender) {
+                        ACLMessage radarMsg = new ACLMessage(ACLMessage.INFORM);
+                        radarMsg.addReceiver(getAID("Radar"));
+                        radarMsg.setContent("INFRAÇÃO " + plate + " via " + currentLane);
+                        send(radarMsg);
                     }
+
+                    // Move o carro para uma nova via aleatória após passar
+                    currentLane = random.nextInt(4) + 1;
                 } else {
-                    // Enviar mensagem para o semáforo atual informando que está esperando
-                    waiting = true;
-                    sendWaitingMessage();
+                    // Se o semáforo estiver vermelho e o carro não for infrator, ele aguarda
+                    System.out.println(plate + " aguardando na via " + currentLane);
                 }
             }
-        });
-    }
-
-    // Método para enviar mensagem de espera para o semáforo
-    private void sendWaitingMessage() {
-        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        msg.addReceiver(getAID(direction + "TrafficLightAgent"));
-        msg.setContent("CAR_WAITING");
-        send(msg);
-        System.out.println(getLocalName() + " esperando no semáforo " + direction);
-    }
-
-    // Método para escolher uma direção aleatória
-    private String getRandomDirection() {
-        String[] directions = {"N", "S", "E", "W"};
-        Random rand = new Random();
-        return directions[rand.nextInt(directions.length)];
+        }
     }
 }
-
