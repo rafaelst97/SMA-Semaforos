@@ -10,61 +10,67 @@ package semaforo;
  */
 import javax.swing.*;
 import java.awt.*;
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TrafficIntersectionGUI extends JFrame {
-    private JPanel intersectionPanel;
-    private JLabel[] trafficLights; // Representa os semáforos
-    private JTextArea infractorArea; // Área para mostrar infratores
-    private ArrayList<String> infractors; // Lista de infratores
+    private static final long serialVersionUID = 1L;
+    
+    private final Map<String, JLabel> trafficLights;
+    private final Map<String, JLabel> carCounters;
 
     public TrafficIntersectionGUI() {
-        setTitle("Sistema de Cruzamento Inteligente");
-        setSize(400, 400);
+        setTitle("Simulação de Cruzamento de Tráfego");
+        setSize(600, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        intersectionPanel = new JPanel();
+        trafficLights = new HashMap<>();
+        carCounters = new HashMap<>();
+        
+        JPanel intersectionPanel = new JPanel();
         intersectionPanel.setLayout(new GridLayout(2, 2));
-        trafficLights = new JLabel[4];
 
-        for (int i = 0; i < 4; i++) {
-            trafficLights[i] = new JLabel("Semáforo " + (i + 1) + ": VERMELHO", SwingConstants.CENTER);
-            trafficLights[i].setOpaque(true);
-            trafficLights[i].setBackground(Color.RED);
-            intersectionPanel.add(trafficLights[i]);
-        }
+        // Criar as áreas de cada direção
+        createTrafficArea(intersectionPanel, "N");
+        createTrafficArea(intersectionPanel, "S");
+        createTrafficArea(intersectionPanel, "E");
+        createTrafficArea(intersectionPanel, "W");
 
         add(intersectionPanel, BorderLayout.CENTER);
-
-        infractorArea = new JTextArea();
-        infractorArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(infractorArea);
-        scrollPane.setPreferredSize(new Dimension(400, 100));
-        add(scrollPane, BorderLayout.SOUTH);
-
-        infractors = new ArrayList<>();
     }
 
-    public void updateTrafficLight(int index, boolean isGreen) {
-        if (isGreen) {
-            trafficLights[index].setText("Semáforo " + (index + 1) + ": VERDE");
-            trafficLights[index].setBackground(Color.GREEN);
-        } else {
-            trafficLights[index].setText("Semáforo " + (index + 1) + ": VERMELHO");
-            trafficLights[index].setBackground(Color.RED);
+    private void createTrafficArea(JPanel panel, String direction) {
+        JPanel areaPanel = new JPanel();
+        areaPanel.setLayout(new BorderLayout());
+
+        JLabel lightLabel = new JLabel("RED", SwingConstants.CENTER);
+        lightLabel.setOpaque(true);
+        lightLabel.setBackground(Color.RED);
+        areaPanel.add(lightLabel, BorderLayout.NORTH);
+        trafficLights.put(direction, lightLabel);
+        
+        JLabel counterLabel = new JLabel("Cars: 0", SwingConstants.CENTER);
+        areaPanel.add(counterLabel, BorderLayout.SOUTH);
+        carCounters.put(direction, counterLabel);
+
+        panel.add(areaPanel);
+    }
+
+    // Método para atualizar o estado do semáforo
+    public void updateTrafficLight(String direction, boolean isGreen) {
+        JLabel lightLabel = trafficLights.get(direction);
+        if (lightLabel != null) {
+            lightLabel.setText(isGreen ? "GREEN" : "RED");
+            lightLabel.setBackground(isGreen ? Color.GREEN : Color.RED);
         }
     }
 
-    public void addInfractor(String plate) {
-        infractors.add(plate);
-        infractorArea.append("Infrator: " + plate + "\n");
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            TrafficIntersectionGUI gui = new TrafficIntersectionGUI();
-            gui.setVisible(true);
-        });
+    // Método para atualizar a contagem de carros
+    public void updateCarCount(String direction, int count) {
+        JLabel counterLabel = carCounters.get(direction);
+        if (counterLabel != null) {
+            counterLabel.setText("Cars: " + count);
+        }
     }
 }

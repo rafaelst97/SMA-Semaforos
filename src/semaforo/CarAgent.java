@@ -10,42 +10,72 @@ package semaforo;
  */
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
+import jade.core.behaviours.OneShotBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
+
+import java.util.Random;
 
 public class CarAgent extends Agent {
-    private boolean willBreakRedLight;
+    private static final long serialVersionUID = 1L;
+    
+    // Direção atual do carro (N, S, E, W)
+    private String direction;
+    private boolean waiting = false; // Indica se o carro está aguardando no semáforo
 
     @Override
     protected void setup() {
-        // Define se o carro irá furar o sinal vermelho
-        willBreakRedLight = Math.random() > 0.8; // 20% de chance de furar o sinal
-        
+        System.out.println("CarAgent " + getLocalName() + " iniciado.");
+
+        // Escolher uma direção inicial aleatoriamente
+        direction = getRandomDirection();
+
+        // Comportamento cíclico para simular o movimento do carro
         addBehaviour(new CyclicBehaviour() {
-            @Override
             public void action() {
-                ACLMessage msg = receive();
-                if (msg != null) {
-                    String content = msg.getContent();
-                    
-                    if (content.equals("RED")) {
-                        if (willBreakRedLight) {
-                            System.out.println(getLocalName() + " furou o sinal vermelho!");
-                            // Notifica o radar
-                            ACLMessage radarMsg = new ACLMessage(ACLMessage.INFORM);
-                            radarMsg.addReceiver(getAID("RadarAgent"));
-                            radarMsg.setContent("FURTOU_SINAL");
-                            send(radarMsg);
-                        } else {
-                            System.out.println(getLocalName() + " parou no sinal vermelho.");
-                        }
-                    } else if (content.equals("GREEN")) {
-                        System.out.println(getLocalName() + " passou no sinal verde.");
+                if (waiting) {
+                    // Verificar se o semáforo está verde para a direção atual
+                    MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
+                    ACLMessage msg = receive(mt);
+
+                    if (msg != null && msg.getContent().equals("GREEN:" + direction)) {
+                        // Semáforo está verde, o carro pode atravessar
+                        System.out.println(getLocalName() + " atravessou o cruzamento para " + direction);
+                        waiting = false; // O carro não está mais esperando
+                        
+                        // Reiniciar o agente para uma nova direção
+                        addBehaviour(new OneShotBehaviour() {
+                            public void action() {
+                                direction = getRandomDirection();
+                                System.out.println(getLocalName() + " agora se movendo para " + direction);
+                            }
+                        });
+                    } else {
+                        block();
                     }
                 } else {
-                    block();
+                    // Enviar mensagem para o semáforo atual informando que está esperando
+                    waiting = true;
+                    sendWaitingMessage();
                 }
             }
         });
+    }
+
+    // Método para enviar mensagem de espera para o semáforo
+    private void sendWaitingMessage() {
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+        msg.addReceiver(getAID(direction + "TrafficLightAgent"));
+        msg.setContent("CAR_WAITING");
+        send(msg);
+        System.out.println(getLocalName() + " esperando no semáforo " + direction);
+    }
+
+    // Método para escolher uma direção aleatória
+    private String getRandomDirection() {
+        String[] directions = {"N", "S", "E", "W"};
+        Random rand = new Random();
+        return directions[rand.nextInt(directions.length)];
     }
 }
 
