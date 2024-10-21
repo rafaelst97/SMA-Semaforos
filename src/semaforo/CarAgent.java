@@ -4,53 +4,70 @@
  */
 package semaforo;
 
-/**
- *
- * @author Rafael
- */
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.core.AID;
 import java.util.Random;
 
 public class CarAgent extends Agent {
-
-    private String plate; // Placa do carro
-    private boolean isOffender; // Define se o carro é um infrator
-    private int currentLane; // Via atual do carro
-    private Random random;
+    private String licensePlate;
+    private boolean isOffender;
+    private String initialRoad;
+    private String direction;
+    private AID coordinatorAID; // AID do CoordinatorAgent
 
     @Override
     protected void setup() {
-        random = new Random();
+        // Recupera o AID do CoordinatorAgent passado como argumento
+        Object[] args = getArguments();
+        if (args != null && args.length > 0) {
+            coordinatorAID = (AID) args[0];
+        }
+
+        // Inicialização do carro
+        generateCarAttributes();
         
-        // Gera uma placa aleatória para o carro
-        plate = generateRandomPlate();
+        // Exibir informações iniciais do agente carro
+        System.out.println("CarAgent [" + licensePlate + "]: criado na via " + initialRoad + 
+                           ". Infrator: " + (isOffender ? "Sim" : "Não"));
+        
+        // Comportamento de envio de mensagens para a GUI
+        addBehaviour(new TickerBehaviour(this, 500) {
+            @Override
+            protected void onTick() {
+                // Envia uma mensagem para o CoordinatorAgent com os dados do carro
+                ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+                msg.addReceiver(coordinatorAID);
+                msg.setContent(licensePlate + ";" + direction);
+                send(msg);
 
-        // Define aleatoriamente se o carro é um infrator
-        isOffender = random.nextBoolean();
-
-        // Define aleatoriamente a via em que o carro será gerado
-        currentLane = random.nextInt(4) + 1;
-
-        System.out.println("Carro criado: " + plate + " na via " + currentLane +
-                (isOffender ? " (Infrator)" : " (Respeita Sinal)"));
-
-        // Comportamento de movimento do carro
-        addBehaviour(new CarMovementBehaviour(this, 2000)); // Verifica o movimento a cada 2 segundos
+                // Simulação de comportamento de infrator: ignora o semáforo
+                if (isOffender && Math.random() < 0.1) { 
+                    System.out.println("CarAgent [" + licensePlate + "]: furou o sinal vermelho!");
+                }
+            }
+        });
     }
 
-    private String generateRandomPlate() {
+    private void generateCarAttributes() {
+        this.licensePlate = generateLicensePlate();
+        this.isOffender = generateOffenderStatus();
+        this.initialRoad = generateInitialRoad();
+        this.direction = initialRoad;  // Define a direção inicial do carro
+    }
+
+    private String generateLicensePlate() {
         String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        Random random = new Random();
         StringBuilder plate = new StringBuilder();
 
-        // Gera 3 letras aleatórias
+        // Gerar 3 letras aleatórias
         for (int i = 0; i < 3; i++) {
             plate.append(letters.charAt(random.nextInt(letters.length())));
         }
 
-        // Gera 4 dígitos aleatórios
-        plate.append("-");
+        // Gerar 4 números aleatórios
         for (int i = 0; i < 4; i++) {
             plate.append(random.nextInt(10));
         }
@@ -58,43 +75,26 @@ public class CarAgent extends Agent {
         return plate.toString();
     }
 
-    // Comportamento do movimento do carro
-    private class CarMovementBehaviour extends TickerBehaviour {
-        public CarMovementBehaviour(Agent a, long period) {
-            super(a, period);
-        }
+    private boolean generateOffenderStatus() {
+        Random random = new Random();
+        return random.nextInt(100) < 30; // 30% de chance de ser infrator
+    }
 
-        @Override
-        protected void onTick() {
-            // Envia mensagem para o agente coordenador para verificar o semáforo da via atual
-            ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
-            msg.addReceiver(getAID("Coordinator"));
-            msg.setContent("VERIFICAR_SEMAFORO " + currentLane);
-            send(msg);
+    private String generateInitialRoad() {
+        String[] roads = {"N", "S", "E", "W"};
+        Random random = new Random();
+        return roads[random.nextInt(roads.length)];
+    }
 
-            // Recebe a resposta do semáforo
-            ACLMessage response = receive();
-            if (response != null) {
-                String content = response.getContent();
-                if (content.equals("VERDE") || (content.equals("VERMELHO") && isOffender)) {
-                    // Se o semáforo estiver verde ou o carro for infrator, ele passa
-                    System.out.println(plate + " está passando pela via " + currentLane);
-
-                    // Notifica o radar se passar no sinal vermelho
-                    if (content.equals("VERMELHO") && isOffender) {
-                        ACLMessage radarMsg = new ACLMessage(ACLMessage.INFORM);
-                        radarMsg.addReceiver(getAID("Radar"));
-                        radarMsg.setContent("INFRAÇÃO " + plate + " via " + currentLane);
-                        send(radarMsg);
-                    }
-
-                    // Move o carro para uma nova via aleatória após passar
-                    currentLane = random.nextInt(4) + 1;
-                } else {
-                    // Se o semáforo estiver vermelho e o carro não for infrator, ele aguarda
-                    System.out.println(plate + " aguardando na via " + currentLane);
-                }
-            }
-        }
+    @Override
+    protected void takeDown() {
+        // Finalização do agente
+        System.out.println("CarAgent [" + licensePlate + "]: terminando.");
+        
+        // Enviar mensagem para a GUI indicando a remoção do carro
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+        msg.addReceiver(coordinatorAID);
+        msg.setContent(licensePlate + ";REMOVE");
+        send(msg);
     }
 }

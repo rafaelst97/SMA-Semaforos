@@ -4,67 +4,56 @@
  */
 package semaforo;
 
-/**
- *
- * @author Rafael
- */
 import jade.core.Agent;
+import jade.core.AID;
 import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
-import javax.swing.SwingUtilities;
+
+import javax.swing.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 public class CoordinatorAgent extends Agent {
+    private List<AID> carAgents;  // Lista de agentes de carro
+    private CrossroadGUI gui;     // Referência para a GUI
+    private final int MAX_CARS = 20; // Limite de carros na tela
 
     @Override
     protected void setup() {
-        System.out.println("CoordinatorAgent iniciado.");
+        System.out.println(getLocalName() + ": iniciado.");
+        carAgents = new ArrayList<>();
 
-        // Inicializa a GUI na thread de eventos do Swing
+        // Inicializa a GUI do cruzamento na Event Dispatch Thread
         SwingUtilities.invokeLater(() -> {
-            TrafficIntersectionGUI gui = new TrafficIntersectionGUI();
+            gui = new CrossroadGUI(this); // Passa o CoordinatorAgent para a GUI
             gui.setVisible(true);
         });
 
-        // Comportamento para criar outros agentes
-        addBehaviour(new OneShotBehaviour() {
+        // Comportamento para criar e gerenciar agentes de carro
+        addBehaviour(new TickerBehaviour(this, 1000) {
             @Override
-            public void action() {
-                createAgents();
+            protected void onTick() {
+                // Verifica o número de agentes ativos e cria novos se necessário
+                if (carAgents.size() < MAX_CARS) {
+                    createCarAgent();
+                }
             }
         });
 
-        // Comportamento para gerenciar mensagens recebidas
+        // Comportamento para receber mensagens dos agentes de carro
         addBehaviour(new CyclicBehaviour() {
             @Override
             public void action() {
                 ACLMessage msg = receive();
                 if (msg != null) {
+                    // Recebe a mensagem de um CarAgent e processa
                     String content = msg.getContent();
-                    System.out.println("CoordinatorAgent recebeu: " + content);
-
-                    // Verifica se a mensagem é sobre o semáforo
-                    if (content.startsWith("SEMAFORO_")) {
-                        String[] parts = content.split(" ");
-                        String direction = parts[0].replace("SEMAFORO_", "");
-                        String state = parts[1];
-                        System.out.println("Semáforo " + direction + " agora está " + state);
-                    }
-
-                    // Verifica se a mensagem é sobre o movimento do carro
-                    if (content.startsWith("VERIFICAR_SEMAFORO")) {
-                        String[] parts = content.split(" ");
-                        int lane = Integer.parseInt(parts[1]);
-
-                        // Responde ao carro com o estado do semáforo (simulação simples)
-                        ACLMessage response = msg.createReply();
-                        response.setContent("VERDE"); // Apenas para testes, ajuste conforme necessário
-                        send(response);
-                        System.out.println("CoordinatorAgent respondeu com 'VERDE' para a via " + lane);
-                    }
+                    SwingUtilities.invokeLater(() -> gui.updateCar(content));
                 } else {
                     block();
                 }
@@ -72,42 +61,38 @@ public class CoordinatorAgent extends Agent {
         });
     }
 
-    // Método para criar outros agentes
-    private void createAgents() {
-        ContainerController container = getContainerController();
-
+    private void createCarAgent() {
         try {
-            // Criar agentes de semáforo
-            AgentController nTrafficLight = container.createNewAgent("N_TrafficLight", "semaforo.TrafficLightAgent", new Object[]{"N"});
-            nTrafficLight.start();
-            System.out.println("Agente N_TrafficLight criado.");
+            // Cria um novo agente de carro
+            String agentName = "CarAgent" + System.currentTimeMillis();
+            Object[] args = { getAID() };  // Passa o AID do CoordinatorAgent para o CarAgent
+            ContainerController container = getContainerController();
+            AgentController carAgent = container.createNewAgent(agentName, "semaforo.CarAgent", args);
+            carAgent.start();
+            carAgents.add(new AID(agentName, AID.ISLOCALNAME));
 
-            AgentController sTrafficLight = container.createNewAgent("S_TrafficLight", "semaforo.TrafficLightAgent", new Object[]{"S"});
-            sTrafficLight.start();
-            System.out.println("Agente S_TrafficLight criado.");
-
-            AgentController eTrafficLight = container.createNewAgent("E_TrafficLight", "semaforo.TrafficLightAgent", new Object[]{"E"});
-            eTrafficLight.start();
-            System.out.println("Agente E_TrafficLight criado.");
-
-            AgentController wTrafficLight = container.createNewAgent("W_TrafficLight", "semaforo.TrafficLightAgent", new Object[]{"W"});
-            wTrafficLight.start();
-            System.out.println("Agente W_TrafficLight criado.");
-
-            // Criar agente radar
-            AgentController radarAgent = container.createNewAgent("Radar", "semaforo.RadarAgent", null);
-            radarAgent.start();
-            System.out.println("Agente Radar criado.");
-
-            // Criar agentes de carro
-            for (int i = 1; i <= 3; i++) {
-                AgentController carAgent = container.createNewAgent("Car" + i, "semaforo.CarAgent", null);
-                carAgent.start();
-                System.out.println("Agente Car" + i + " criado.");
-            }
-
+            System.out.println(getLocalName() + ": criou " + agentName);
         } catch (StaleProxyException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    protected void takeDown() {
+        // Finaliza todos os agentes de carro ao encerrar o CoordinatorAgent
+        for (AID carAgent : carAgents) {
+            try {
+                getContainerController().getAgent(carAgent.getLocalName()).kill();
+                System.out.println(getLocalName() + ": finalizou " + carAgent.getLocalName());
+            } catch (Exception e) {
+                System.out.println(getLocalName() + ": erro ao finalizar " + carAgent.getLocalName());
+                e.printStackTrace();
+            }
+        }
+        carAgents.clear();
+        if (gui != null) {
+            SwingUtilities.invokeLater(() -> gui.dispose()); // Fecha a GUI ao encerrar o agente coordenador
+        }
+        System.out.println(getLocalName() + ": encerrando.");
     }
 }
