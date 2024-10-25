@@ -10,10 +10,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import jade.core.Agent;
+import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 
 public class CrossroadGUI extends JFrame {
     private List<CarVisual> cars;  // Lista de carros visuais
     private HashMap<String, CarVisual> carMap; // Mapa para controle de carros por placa
+    private HashMap<String, Color> trafficLights; // Mapeamento de semáforos por posição
     private static final int ROAD_WIDTH = 100;
     private static final int WINDOW_SIZE = 600;
     private static final int CAR_SIZE = 20;
@@ -25,15 +28,25 @@ public class CrossroadGUI extends JFrame {
         this.coordinator = coordinator;
         cars = new ArrayList<>();
         carMap = new HashMap<>();
+        trafficLights = new HashMap<>();
 
         setTitle("Simulação de Cruzamento");
         setSize(WINDOW_SIZE, WINDOW_SIZE);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
+        // Inicializa os semáforos com estado vermelho
+        trafficLights.put("N", Color.RED);
+        trafficLights.put("S", Color.RED);
+        trafficLights.put("E", Color.RED);
+        trafficLights.put("W", Color.RED);
+
         // Timer para mover os carros a cada 100 ms
         Timer timer = new Timer(100, e -> moveCars());
         timer.start();
+
+        // Comportamento para atualizar semáforos baseado em mensagens de agentes
+        addBehaviourToUpdateTrafficLights();
     }
 
     @Override
@@ -57,6 +70,9 @@ public class CrossroadGUI extends JFrame {
         bufferGraphics.fillRect((WINDOW_SIZE - ROAD_WIDTH) / 2, 0, ROAD_WIDTH, WINDOW_SIZE); // Vertical
         bufferGraphics.fillRect(0, (WINDOW_SIZE - ROAD_WIDTH) / 2, WINDOW_SIZE, ROAD_WIDTH); // Horizontal
 
+        // Desenhar as barras de semáforos próximas ao cruzamento
+        drawTrafficLights(bufferGraphics);
+
         // Desenhar os carros
         for (CarVisual car : cars) {
             car.draw(bufferGraphics);
@@ -79,6 +95,22 @@ public class CrossroadGUI extends JFrame {
         repaint(); // Atualiza a tela
     }
 
+    private void drawTrafficLights(Graphics g) {
+        // Desenha a barra de semáforo para cada posição próxima ao cruzamento
+        for (String position : trafficLights.keySet()) {
+            g.setColor(trafficLights.get(position));
+            if (position.equals("N")) {
+                g.fillRect((WINDOW_SIZE - ROAD_WIDTH) / 2, (WINDOW_SIZE - ROAD_WIDTH) / 2 - 30, ROAD_WIDTH, 20); // Barra no norte
+            } else if (position.equals("S")) {
+                g.fillRect((WINDOW_SIZE - ROAD_WIDTH) / 2, (WINDOW_SIZE + ROAD_WIDTH) / 2 + 10, ROAD_WIDTH, 20); // Barra no sul
+            } else if (position.equals("E")) {
+                g.fillRect((WINDOW_SIZE + ROAD_WIDTH) / 2 + 10, (WINDOW_SIZE - ROAD_WIDTH) / 2, 20, ROAD_WIDTH); // Barra no leste
+            } else if (position.equals("W")) {
+                g.fillRect((WINDOW_SIZE - ROAD_WIDTH) / 2 - 30, (WINDOW_SIZE - ROAD_WIDTH) / 2, 20, ROAD_WIDTH); // Barra no oeste
+            }
+        }
+    }
+
     public void updateCar(String content) {
         // Conteúdo esperado: "placa;direção"
         String[] data = content.split(";");
@@ -97,6 +129,38 @@ public class CrossroadGUI extends JFrame {
     public void addCar(CarVisual car) {
         cars.add(car);
         carMap.put(car.getPlate(), car);
+    }
+
+    // Método para atualizar o estado do semáforo
+    public void updateTrafficLight(String position, String state) {
+        switch (state) {
+            case "verde":
+                trafficLights.put(position, Color.GREEN);
+                break;
+            case "amarelo":
+                trafficLights.put(position, Color.YELLOW);
+                break;
+            case "vermelho":
+                trafficLights.put(position, Color.RED);
+                break;
+        }
+        repaint(); // Atualiza a tela
+    }
+
+    // Comportamento para atualizar os semáforos baseado nas mensagens recebidas dos agentes de semáforo
+    private void addBehaviourToUpdateTrafficLights() {
+        Thread t = new Thread(() -> {
+            while (true) {
+                ACLMessage msg = coordinator.receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
+                if (msg != null) {
+                    String[] content = msg.getContent().split(";");
+                    String position = content[0];
+                    String state = content[1];
+                    updateTrafficLight(position, state);
+                }
+            }
+        });
+        t.start();
     }
 
     public static void main(String[] args) {
