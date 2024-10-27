@@ -3,55 +3,48 @@ package semaforo;
 
 import jade.core.AID;
 import jade.core.Agent;
+import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
 public class TrafficLightAgent extends Agent {
-    private String position; // Posição do semáforo (N, S, E, W)
-    private String state; // Estado do semáforo (verde, amarelo, vermelho)
-    private final int greenDuration = 3000; // Duração do verde em milissegundos
-    private final int yellowDuration = 1000; // Duração do amarelo
-    private final int redDuration = 3000; // Duração do vermelho
-    private AID coordinatorAID; // AID do CoordinatorAgent
 
+    private String posicao;
+    private int tempoVerde;
+    private int tempoVermelho;
+    private String estadoAtual = "VERMELHO";
+    
     @Override
     protected void setup() {
-        // Recebe a posição do semáforo na inicialização
-        Object[] args = getArguments();
-        position = (args != null && args.length > 0) ? (String) args[0] : "N"; // Padrão para Norte
-        state = "vermelho"; // Inicialmente vermelho
-
-        // Obtém o AID do coordenador (assumindo que é passado como argumento)
-        if (args != null && args.length > 1) {
-            coordinatorAID = (AID) args[1];
-        }
-
-        addBehaviour(new TickerBehaviour(this, 1000) {
+        
+        //Leitura dos parametros passados para o agente
+        Object[] parametros = getArguments();
+        posicao = (String) parametros[0];
+        tempoVerde = (int) parametros[1];
+        tempoVermelho = (int) parametros[2];
+        //Fim da leitura dos parametros
+        
+        System.out.println("SEMAFORO " + posicao + " INICIADO");
+        
+        // Comportamento para processar mensagens recebidas
+        addBehaviour(new CyclicBehaviour(this) {
             @Override
-            protected void onTick() {
-                switch (state) {
-                    case "verde":
-                        state = "amarelo";
-                        block(yellowDuration);
-                        break;
-                    case "amarelo":
-                        state = "vermelho";
-                        block(redDuration);
-                        break;
-                    case "vermelho":
-                        state = "verde";
-                        block(greenDuration);
-                        break;
-                }
-                // Envia o estado atualizado do semáforo para o coordenador
-                if (coordinatorAID != null) {
-                    ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-                    msg.setContent(position + ";" + state);
-                    msg.addReceiver(coordinatorAID);
-                    send(msg);
-                    System.out.println("Semaforo: " + position + " ficou " + state);
+            public void action() {
+                ACLMessage msg = receive();
+                if (msg != null) {
+                    String conteudo = msg.getContent();
+                    if (conteudo.equals("VERDE")) {
+                        estadoAtual = conteudo;
+                    } else if (conteudo.equals("VERMELHO")) {
+                        estadoAtual = conteudo;
+                    } else if (conteudo.equals("STATUS")){
+                        ACLMessage resposta = msg.createReply();
+                        resposta.setPerformative(ACLMessage.INFORM);
+                        resposta.setContent(estadoAtual);
+                        send(resposta);
+                    }
                 } else {
-                    System.err.println("AID do coordenador não definido para o agente de semáforo.");
+                    block();
                 }
             }
         });

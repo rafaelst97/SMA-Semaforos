@@ -6,6 +6,7 @@ import jade.core.AID;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
@@ -16,94 +17,87 @@ import java.util.List;
 import java.util.Random;
 
 public class CoordinatorAgent extends Agent {
-    private List<AID> carAgents;  // Lista de agentes de carro
-    private CrossroadGUI gui;     // Referência para a GUI
-    private final int MAX_CARS = 20; // Limite de carros na tela
+    
+    //CONSTANTES DO SISTEMA
+    public static final int TEMPO_VERMELHO = 5000;
+    public static final int TEMPO_VERDE = 3000;
+    public static final int MAX_CARROS = 5;
+    
+    // Lista dos nomes dos semáforos em sentido horário
+    private String[] semaforos = {"semaforo_N", "semaforo_E", "semaforo_S", "semaforo_W"};
+    private int semaforoAtual = 0;
 
     @Override
     protected void setup() {
-        System.out.println(getLocalName() + ": iniciado.");
-        carAgents = new ArrayList<>();
-
-        // Inicializa a GUI do cruzamento na Event Dispatch Thread
-        SwingUtilities.invokeLater(() -> {
-            gui = new CrossroadGUI(this); // Passa o CoordinatorAgent para a GUI
-            gui.setVisible(true);
-        });
-
-        // Criar os agentes de semáforo com o AID do coordenador
-        createTrafficLightAgent("N_Semaforo", "N", getAID());
-        createTrafficLightAgent("S_Semaforo", "S", getAID());
-        createTrafficLightAgent("E_Semaforo", "E", getAID());
-        createTrafficLightAgent("W_Semaforo", "W", getAID());
-
-        // Comportamento para criar e gerenciar agentes de carro
-        addBehaviour(new TickerBehaviour(this, 1000) {
-            @Override
-            protected void onTick() {
-                // Verifica o número de agentes ativos e cria novos se necessário
-                if (carAgents.size() < MAX_CARS) {
-                    createCarAgent();
-                }
-            }
-        });
-
-        // Comportamento para receber mensagens dos agentes de carro
-        addBehaviour(new CyclicBehaviour() {
-            @Override
-            public void action() {
-                ACLMessage msg = receive();
-                if (msg != null) {
-                    // Recebe a mensagem de um CarAgent e processa
-                    String content = msg.getContent();
-                    SwingUtilities.invokeLater(() -> gui.updateCar(content));
-                } else {
-                    block();
-                }
-            }
-        });
-    }
-
-    private void createTrafficLightAgent(String agentName, String position, AID coordinatorAID) {
+        
         try {
-            // Passa a posição e o AID do coordenador como argumentos
-            Object[] args = { position, coordinatorAID };
             ContainerController container = getContainerController();
-            AgentController trafficLightAgent = container.createNewAgent(agentName, "semaforo.TrafficLightAgent", args);
-            trafficLightAgent.start();
+            
+            //Criação de parâmetros para cada agente semaforo
+            Object[] parametrosSemaforo_N = new Object[] { "N", TEMPO_VERDE, TEMPO_VERMELHO };
+            Object[] parametrosSemaforo_E = new Object[] { "E", TEMPO_VERDE, TEMPO_VERMELHO };
+            Object[] parametrosSemaforo_S = new Object[] { "S", TEMPO_VERDE, TEMPO_VERMELHO };
+            Object[] parametrosSemaforo_W = new Object[] { "W", TEMPO_VERDE, TEMPO_VERMELHO };
+            
+            //Início do bloco da criacao dos semaforos
+            AgentController semaforo_N = container.createNewAgent("semaforo_N","semaforo.TrafficLightAgent", parametrosSemaforo_N);
+            AgentController semaforo_E = container.createNewAgent("semaforo_E","semaforo.TrafficLightAgent", parametrosSemaforo_E);
+            AgentController semaforo_S = container.createNewAgent("semaforo_S","semaforo.TrafficLightAgent", parametrosSemaforo_S);
+            AgentController semaforo_W = container.createNewAgent("semaforo_W","semaforo.TrafficLightAgent", parametrosSemaforo_W);
+            
+            semaforo_N.start();
+            semaforo_E.start();
+            semaforo_S.start();
+            semaforo_W.start();
+            //Fim da criacao dos semaforos
 
-            System.out.println(getLocalName() + ": criou " + agentName);
-        } catch (StaleProxyException e) {
+            // Adiciona o comportamento que controla os semáforos
+            addBehaviour(new TickerBehaviour(this, TEMPO_VERDE + TEMPO_VERMELHO) {
+                @Override
+                protected void onTick() {
+                    // Enviar mensagem de vermelho para todos os semáforos
+                    for (String semaforo : semaforos) {
+                        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+                        msg.addReceiver(new AID(semaforo, AID.ISLOCALNAME));
+                        msg.setContent("VERMELHO");
+                        send(msg);
+                    }
+
+                    // Enviar mensagem de verde para o semáforo atual
+                    ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+                    msg.addReceiver(new AID(semaforos[semaforoAtual], AID.ISLOCALNAME));
+                    msg.setContent("VERDE");
+                    send(msg);
+
+                    // Atualizar para o próximo semáforo em sentido horário
+                    semaforoAtual = (semaforoAtual + 1) % semaforos.length;
+                    
+                    // Solicitar o status de todos os semáforos
+                    System.out.println("STATUS DE TODOS OS SEMAFOROS");
+                    ACLMessage statusRequest = new ACLMessage(ACLMessage.REQUEST);
+                    for (String semaforo : semaforos) {
+                        statusRequest.addReceiver(new AID(semaforo, AID.ISLOCALNAME));
+                    }
+                    statusRequest.setContent("STATUS");
+                    send(statusRequest);
+                }
+            });
+            
+            // Adiciona comportamento para receber o status dos semáforos
+            addBehaviour(new CyclicBehaviour(this) {
+                @Override
+                public void action() {
+                    ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
+                    if (msg != null) {
+                        System.out.println("Status do semaforo " + msg.getSender().getLocalName() + ": " + msg.getContent());
+                    } else {
+                        block();
+                    }
+                }
+            });
+            
+        } catch (Exception e){
             e.printStackTrace();
-        }
-    }
-
-    private void createCarAgent() {
-        try {
-            // Cria um novo agente de carro
-            String agentName = "CarAgent" + System.currentTimeMillis();
-            Object[] args = { getAID() };  // Passa o AID do CoordinatorAgent para o CarAgent
-            ContainerController container = getContainerController();
-            AgentController carAgent = container.createNewAgent(agentName, "semaforo.CarAgent", args);
-            carAgent.start();
-            carAgents.add(new AID(agentName, AID.ISLOCALNAME));
-
-            System.out.println(getLocalName() + ": criou " + agentName);
-        } catch (StaleProxyException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    protected void takeDown() {
-        // Finaliza todos os agentes de carro ao encerrar o CoordinatorAgent
-        for (AID carAgent : carAgents) {
-            try {
-                getContainerController().getAgent(carAgent.getLocalName()).kill();
-                System.out.println(getLocalName() + ": finalizou " + carAgent.getLocalName());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
         }
     }
 }
