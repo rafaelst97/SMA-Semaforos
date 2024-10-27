@@ -22,6 +22,7 @@ public class CoordinatorAgent extends Agent {
     public static final int TEMPO_VERMELHO = 5000;
     public static final int TEMPO_VERDE = 3000;
     public static final int MAX_CARROS = 5;
+    private Random random = new Random();
     
     // Lista dos nomes dos semáforos em sentido horário
     private String[] semaforos = {"semaforo_N", "semaforo_E", "semaforo_S", "semaforo_W"};
@@ -51,16 +52,14 @@ public class CoordinatorAgent extends Agent {
             semaforo_W.start();
             //Fim da criacao dos semaforos
             
-            //TESTE INICIANDO CARRO
-            AgentController carroTeste = container.createNewAgent("carroTeste", "semaforo.CarAgent", null);
+            // Criação inicial dos 5 carros
+            for (int i = 0; i < MAX_CARROS; i++) {
+                criarCarro(container);
+            }
             
-            carroTeste.start();
-            //FIM TESTE CARRO
-            
-            //TESTE RADAR
+            //RADAR
             AgentController radar = container.createNewAgent("radar", "semaforo.RadarAgent", null);
             radar.start();
-            //FIM TESTE RADAR
 
             // Adiciona o comportamento que controla os semáforos
             addBehaviour(new TickerBehaviour(this, TEMPO_VERDE + TEMPO_VERMELHO) {
@@ -108,6 +107,17 @@ public class CoordinatorAgent extends Agent {
             });
             
         } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    private void criarCarro(ContainerController container) {
+        try {
+            int idAleatorio = random.nextInt(1001);
+            String nomeCarro = "carro" + idAleatorio;
+            AgentController carro = container.createNewAgent(nomeCarro, "semaforo.CarAgent", null);
+            carro.start();
+        } catch (StaleProxyException e) {
             e.printStackTrace();
         }
     }

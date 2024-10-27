@@ -9,6 +9,9 @@ import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.core.AID;
 import jade.core.behaviours.CyclicBehaviour;
+import jade.wrapper.AgentController;
+import jade.wrapper.ContainerController;
+import jade.wrapper.StaleProxyException;
 import java.util.Random;
 
 public class CarAgent extends Agent {
@@ -20,6 +23,7 @@ public class CarAgent extends Agent {
     private int localSemaforo = 60;
     private int distanciaParaSemaforo = distanciaRestanteRua - localSemaforo;
     private String estadoAtual = "MOVENDO-SE";
+    private Random random = new Random();
 
     @Override
     protected void setup() {
@@ -127,8 +131,21 @@ public class CarAgent extends Agent {
     }
     
     private void finalizarCarro() {
+        ContainerController container = getContainerController();
         // Imprimir mensagem de finalização e deletar o agente
         System.out.println("Carro " + placa + " chegou ao destino e sera removido.");
+        this.criarCarro(container);
         doDelete();
+    }
+    
+    private void criarCarro(ContainerController container) {
+        try {
+            int idAleatorio = random.nextInt(1001);
+            String nomeCarro = "carro" + idAleatorio;
+            AgentController carro = container.createNewAgent(nomeCarro, "semaforo.CarAgent", null);
+            carro.start();
+        } catch (StaleProxyException e) {
+            e.printStackTrace();
+        }
     }
 }
