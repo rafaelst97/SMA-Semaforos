@@ -8,6 +8,7 @@ import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.core.AID;
+import jade.core.behaviours.CyclicBehaviour;
 import java.util.Random;
 
 public class CarAgent extends Agent {
@@ -28,49 +29,65 @@ public class CarAgent extends Agent {
         System.out.println("Ele vai furar sinal? " + furaSinal);
         System.out.println("Rua que nasce " + ruaNascimento);
         
-        // Comportamento para simular o movimento do carro
-        addBehaviour(new TickerBehaviour(this, 1000) { // Intervalo de 1 segundo
+        addBehaviour(new TickerBehaviour(this, 1000) {
             @Override
             protected void onTick() {
                 if (distanciaRestanteRua > 0) {
-                    // Reduzir a distância para o semáforo a cada tick
-                    if (estadoAtual != "PARADO"){
-                        distanciaRestanteRua -= 10; // Aproximar-se do semáforo
+                    if (estadoAtual != "PARADO") {
+                        distanciaRestanteRua -= 10;
                         distanciaParaSemaforo = distanciaRestanteRua - localSemaforo;
-                        if (distanciaRestanteRua <= 0){
+                        if (distanciaRestanteRua <= 0) {
                             System.out.println("FINALIZANDO CARRO " + placa);
                             finalizarCarro();
                         }
                     }
-                    
-                    System.out.println("Carro " + placa + " se movendo. Distancia total da rua: " + distanciaRestanteRua);
+
+                    System.out.println("Carro " + placa + " se movendo na rua " + ruaNascimento + ". Distancia total da rua: " + distanciaRestanteRua);
                     System.out.println("Distancia para o semaforo: " + distanciaParaSemaforo);
                     if (distanciaRestanteRua == localSemaforo) {
-                        // Solicitar o status do semáforo
                         AID semaforo = new AID("semaforo_" + ruaNascimento, AID.ISLOCALNAME);
                         ACLMessage pedidoStatus = new ACLMessage(ACLMessage.REQUEST);
                         pedidoStatus.addReceiver(semaforo);
                         pedidoStatus.setContent("STATUS");
                         send(pedidoStatus);
-
-                        // Esperar pela resposta do semáforo
-                        ACLMessage resposta = blockingReceive(1000);
-                        if (resposta != null) {
-                            String estadoSemaforo = resposta.getContent();
-                            if (estadoSemaforo.equals("VERDE") || (estadoSemaforo.equals("VERMELHO") && furaSinal)) {
-                                System.out.println("Carro " + placa + " esta atravessando na rua " + ruaNascimento + " com sinal " + estadoSemaforo);
-                                estadoAtual = "ATRAVESSANDO";
-                            } else {
-                                System.out.println("Carro " + placa + " parou no semáforo " + ruaNascimento + " com sinal " + estadoSemaforo);
-                                estadoAtual = "PARADO";
-                            }
-                        } else {
-                            System.out.println("Carro " + placa + " não recebeu resposta do semáforo " + ruaNascimento);
-                        }
                     }
                 }
             }
         });
+
+        // Comportamento assíncrono para processar respostas dos semáforos
+        addBehaviour(new CyclicBehaviour(this) {
+            @Override
+            public void action() {
+                ACLMessage resposta = receive();
+                if (resposta != null) {
+                    String estadoSemaforo = resposta.getContent();
+                    if (estadoSemaforo.equals("VERDE")) {
+                        System.out.println("Carro " + placa + " esta atravessando na rua " + ruaNascimento + " com sinal " + estadoSemaforo);
+                        estadoAtual = "ATRAVESSANDO";
+                    } else if (estadoSemaforo.equals("VERMELHO")) {
+                        if (furaSinal) {
+                            System.out.println("Carro " + placa + " esta furando o sinal vermelho na rua " + ruaNascimento);
+
+                            // Enviar a placa para o RadarAgent
+                            AID radar = new AID("radar", AID.ISLOCALNAME);
+                            ACLMessage msgRadar = new ACLMessage(ACLMessage.INFORM);
+                            msgRadar.addReceiver(radar);
+                            msgRadar.setContent(placa);
+                            send(msgRadar);
+
+                            estadoAtual = "ATRAVESSANDO";
+                        } else {
+                            System.out.println("Carro " + placa + " parou no semaforo " + ruaNascimento + " com sinal " + estadoSemaforo);
+                            estadoAtual = "PARADO";
+                        }
+                    }
+                } else {
+                    block();
+                }
+            }
+        });
+
     }
 
     private void geraAtributosCarro() {
@@ -111,7 +128,7 @@ public class CarAgent extends Agent {
     
     private void finalizarCarro() {
         // Imprimir mensagem de finalização e deletar o agente
-        System.out.println("Carro " + placa + " chegou ao destino e será removido.");
+        System.out.println("Carro " + placa + " chegou ao destino e sera removido.");
         doDelete();
     }
 }

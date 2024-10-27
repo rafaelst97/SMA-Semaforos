@@ -56,6 +56,11 @@ public class CoordinatorAgent extends Agent {
             
             carroTeste.start();
             //FIM TESTE CARRO
+            
+            //TESTE RADAR
+            AgentController radar = container.createNewAgent("radar", "semaforo.RadarAgent", null);
+            radar.start();
+            //FIM TESTE RADAR
 
             // Adiciona o comportamento que controla os semáforos
             addBehaviour(new TickerBehaviour(this, TEMPO_VERDE + TEMPO_VERMELHO) {

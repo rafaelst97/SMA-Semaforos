@@ -1,32 +1,35 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package semaforo;
 
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
-import java.util.LinkedList;
-import java.util.Queue;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class RadarAgent extends Agent {
-    private Queue<String> infractions = new LinkedList<>();
-    private final int MAX_SIZE = 30;
+    
+    private Set<String> placasInfratoras;
 
     @Override
     protected void setup() {
+        placasInfratoras = new HashSet<>();
+
+        System.out.println("Radar iniciado e aguardando infracoes...");
+
+        // Comportamento para receber e processar mensagens dos carros infratores
         addBehaviour(new CyclicBehaviour(this) {
             @Override
             public void action() {
                 ACLMessage msg = receive();
                 if (msg != null) {
-                    String plate = msg.getContent();
-                    if (infractions.size() >= MAX_SIZE) {
-                        infractions.poll(); // Remove o mais antigo
+                    String placaCarro = msg.getContent();
+                    if (placaCarro != null && !placaCarro.isEmpty()) {
+                        // Armazena a placa do carro infrator
+                        placasInfratoras.add(placaCarro);
+                        System.out.println("Radar registrou carro infrator com placa: " + placaCarro);
+                        System.out.println("Placas registradas ate agora: " + placasInfratoras);
                     }
-                    infractions.add(plate);
-                    System.out.println("Infração registrada: " + plate);
                 } else {
                     block();
                 }
