@@ -1,7 +1,4 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Main.java to edit this template
- */
+
 package semaforo;
 
 import jade.core.Agent;
@@ -34,6 +31,12 @@ public class CoordinatorAgent extends Agent {
             gui.setVisible(true);
         });
 
+        // Criar os agentes de semáforo com o AID do coordenador
+        createTrafficLightAgent("N_Semaforo", "N", getAID());
+        createTrafficLightAgent("S_Semaforo", "S", getAID());
+        createTrafficLightAgent("E_Semaforo", "E", getAID());
+        createTrafficLightAgent("W_Semaforo", "W", getAID());
+
         // Comportamento para criar e gerenciar agentes de carro
         addBehaviour(new TickerBehaviour(this, 1000) {
             @Override
@@ -61,6 +64,20 @@ public class CoordinatorAgent extends Agent {
         });
     }
 
+    private void createTrafficLightAgent(String agentName, String position, AID coordinatorAID) {
+        try {
+            // Passa a posição e o AID do coordenador como argumentos
+            Object[] args = { position, coordinatorAID };
+            ContainerController container = getContainerController();
+            AgentController trafficLightAgent = container.createNewAgent(agentName, "semaforo.TrafficLightAgent", args);
+            trafficLightAgent.start();
+
+            System.out.println(getLocalName() + ": criou " + agentName);
+        } catch (StaleProxyException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void createCarAgent() {
         try {
             // Cria um novo agente de carro
@@ -85,14 +102,8 @@ public class CoordinatorAgent extends Agent {
                 getContainerController().getAgent(carAgent.getLocalName()).kill();
                 System.out.println(getLocalName() + ": finalizou " + carAgent.getLocalName());
             } catch (Exception e) {
-                System.out.println(getLocalName() + ": erro ao finalizar " + carAgent.getLocalName());
                 e.printStackTrace();
             }
         }
-        carAgents.clear();
-        if (gui != null) {
-            SwingUtilities.invokeLater(() -> gui.dispose()); // Fecha a GUI ao encerrar o agente coordenador
-        }
-        System.out.println(getLocalName() + ": encerrando.");
     }
 }
