@@ -50,6 +50,12 @@ public class CoordinatorAgent extends Agent {
             semaforo_S.start();
             semaforo_W.start();
             //Fim da criacao dos semaforos
+            
+            //TESTE INICIANDO CARRO
+            AgentController carroTeste = container.createNewAgent("carroTeste", "semaforo.CarAgent", null);
+            
+            carroTeste.start();
+            //FIM TESTE CARRO
 
             // Adiciona o comportamento que controla os semáforos
             addBehaviour(new TickerBehaviour(this, TEMPO_VERDE + TEMPO_VERMELHO) {

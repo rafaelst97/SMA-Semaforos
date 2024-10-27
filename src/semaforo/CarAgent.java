@@ -11,53 +11,36 @@ import jade.core.AID;
 import java.util.Random;
 
 public class CarAgent extends Agent {
-    private String licensePlate;
-    private boolean isOffender;
-    private String initialRoad;
-    private String direction;
-    private AID coordinatorAID; // AID do CoordinatorAgent
+    private String placa;
+    private boolean furaSinal;
+    private String ruaNascimento;
+    private String direcao;
 
     @Override
     protected void setup() {
-        // Recupera o AID do CoordinatorAgent passado como argumento
-        Object[] args = getArguments();
-        if (args != null && args.length > 0) {
-            coordinatorAID = (AID) args[0];
-        }
-
-        // Inicialização do carro
-        generateCarAttributes();
         
-        // Exibir informações iniciais do agente carro
-        System.out.println("CarAgent [" + licensePlate + "]: criado na via " + initialRoad + 
-                           ". Infrator: " + (isOffender ? "Sim" : "Não"));
+        this.geraAtributosCarro();
+        System.out.println("Gerado carro com placa " + placa);
+        System.out.println("Ele vai furar sinal? " + furaSinal);
+        System.out.println("Rua que nasce " + ruaNascimento);
+        //Parametros
+        /*Object[] parametros = getArguments();
         
-        // Comportamento de envio de mensagens para a GUI
-        addBehaviour(new TickerBehaviour(this, 500) {
-            @Override
-            protected void onTick() {
-                // Envia uma mensagem para o CoordinatorAgent com os dados do carro
-                ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-                msg.addReceiver(coordinatorAID);
-                msg.setContent(licensePlate + ";" + direction);
-                send(msg);
+        placa = (String) parametros[0];
+        furaSinal = (boolean) parametros[1];
+        ruaNascimento = (String) parametros[2];
+        direcao = (String) parametros[3];*/
 
-                // Simulação de comportamento de infrator: ignora o semáforo
-                if (isOffender && Math.random() < 0.1) { 
-                    System.out.println("CarAgent [" + licensePlate + "]: furou o sinal vermelho!");
-                }
-            }
-        });
     }
 
-    private void generateCarAttributes() {
-        this.licensePlate = generateLicensePlate();
-        this.isOffender = generateOffenderStatus();
-        this.initialRoad = generateInitialRoad();
-        this.direction = initialRoad;  // Define a direção inicial do carro
+    private void geraAtributosCarro() {
+        this.placa = geraPlaca();
+        this.furaSinal = defineSeFuraSinal();
+        this.ruaNascimento = defineRua();
+        //this.direcao = initialRoad;  // Define a direção inicial do carro
     }
 
-    private String generateLicensePlate() {
+    private String geraPlaca() {
         String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         Random random = new Random();
         StringBuilder plate = new StringBuilder();
@@ -75,26 +58,14 @@ public class CarAgent extends Agent {
         return plate.toString();
     }
 
-    private boolean generateOffenderStatus() {
+    private boolean defineSeFuraSinal() {
         Random random = new Random();
         return random.nextInt(100) < 30; // 30% de chance de ser infrator
     }
 
-    private String generateInitialRoad() {
+    private String defineRua() {
         String[] roads = {"N", "S", "E", "W"};
         Random random = new Random();
         return roads[random.nextInt(roads.length)];
-    }
-
-    @Override
-    protected void takeDown() {
-        // Finalização do agente
-        System.out.println("CarAgent [" + licensePlate + "]: terminando.");
-        
-        // Enviar mensagem para a GUI indicando a remoção do carro
-        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        msg.addReceiver(coordinatorAID);
-        msg.setContent(licensePlate + ";REMOVE");
-        send(msg);
     }
 }
