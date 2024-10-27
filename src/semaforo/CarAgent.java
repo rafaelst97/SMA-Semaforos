@@ -23,14 +23,32 @@ public class CarAgent extends Agent {
         System.out.println("Gerado carro com placa " + placa);
         System.out.println("Ele vai furar sinal? " + furaSinal);
         System.out.println("Rua que nasce " + ruaNascimento);
-        //Parametros
-        /*Object[] parametros = getArguments();
         
-        placa = (String) parametros[0];
-        furaSinal = (boolean) parametros[1];
-        ruaNascimento = (String) parametros[2];
-        direcao = (String) parametros[3];*/
+        addBehaviour(new TickerBehaviour(this, 1000) {
+            @Override
+            protected void onTick() {
+                // Enviar mensagem para o semáforo da rua atual pedindo status
+                AID semaforo = new AID("semaforo_" + ruaNascimento, AID.ISLOCALNAME);
+                ACLMessage pedidoStatus = new ACLMessage(ACLMessage.REQUEST);
+                pedidoStatus.addReceiver(semaforo);
+                pedidoStatus.setContent("STATUS");
+                send(pedidoStatus);
 
+                // Esperar pela resposta do semáforo
+                ACLMessage resposta = blockingReceive(500);
+                if (resposta != null) {
+                    String estadoSemaforo = resposta.getContent();
+                    if (estadoSemaforo.equals("VERDE") || (estadoSemaforo.equals("VERMELHO") && furaSinal)) {
+                        System.out.println("Carro " + placa + " esta avancando na rua " + ruaNascimento + " mesmo com sinal " + estadoSemaforo);
+                        // Lógica para mover o carro para a próxima rua ou destino
+                    } else if (estadoSemaforo.equals("VERMELHO")) {
+                        System.out.println("Carro " + placa + " esta parado na rua " + ruaNascimento + " no sinal " + estadoSemaforo);
+                    }
+                } else {
+                    System.out.println("Carro " + placa + " nao recebeu resposta do semaforo " + ruaNascimento);
+                }
+            }
+        });
     }
 
     private void geraAtributosCarro() {
