@@ -15,6 +15,10 @@ public class CarAgent extends Agent {
     private boolean furaSinal;
     private String ruaNascimento;
     private String direcao;
+    private int distanciaRestanteRua = 200;
+    private int localSemaforo = 60;
+    private int distanciaParaSemaforo = distanciaRestanteRua - localSemaforo;
+    private String estadoAtual = "MOVENDO-SE";
 
     @Override
     protected void setup() {
@@ -24,28 +28,46 @@ public class CarAgent extends Agent {
         System.out.println("Ele vai furar sinal? " + furaSinal);
         System.out.println("Rua que nasce " + ruaNascimento);
         
-        addBehaviour(new TickerBehaviour(this, 1000) {
+        // Comportamento para simular o movimento do carro
+        addBehaviour(new TickerBehaviour(this, 1000) { // Intervalo de 1 segundo
             @Override
             protected void onTick() {
-                // Enviar mensagem para o semáforo da rua atual pedindo status
-                AID semaforo = new AID("semaforo_" + ruaNascimento, AID.ISLOCALNAME);
-                ACLMessage pedidoStatus = new ACLMessage(ACLMessage.REQUEST);
-                pedidoStatus.addReceiver(semaforo);
-                pedidoStatus.setContent("STATUS");
-                send(pedidoStatus);
-
-                // Esperar pela resposta do semáforo
-                ACLMessage resposta = blockingReceive(500);
-                if (resposta != null) {
-                    String estadoSemaforo = resposta.getContent();
-                    if (estadoSemaforo.equals("VERDE") || (estadoSemaforo.equals("VERMELHO") && furaSinal)) {
-                        System.out.println("Carro " + placa + " esta avancando na rua " + ruaNascimento + " mesmo com sinal " + estadoSemaforo);
-                        // Lógica para mover o carro para a próxima rua ou destino
-                    } else if (estadoSemaforo.equals("VERMELHO")) {
-                        System.out.println("Carro " + placa + " esta parado na rua " + ruaNascimento + " no sinal " + estadoSemaforo);
+                if (distanciaRestanteRua > 0) {
+                    // Reduzir a distância para o semáforo a cada tick
+                    if (estadoAtual != "PARADO"){
+                        distanciaRestanteRua -= 10; // Aproximar-se do semáforo
+                        distanciaParaSemaforo = distanciaRestanteRua - localSemaforo;
+                        if (distanciaRestanteRua <= 0){
+                            System.out.println("FINALIZANDO CARRO " + placa);
+                            finalizarCarro();
+                        }
                     }
-                } else {
-                    System.out.println("Carro " + placa + " nao recebeu resposta do semaforo " + ruaNascimento);
+                    
+                    System.out.println("Carro " + placa + " se movendo. Distancia total da rua: " + distanciaRestanteRua);
+                    System.out.println("Distancia para o semaforo: " + distanciaParaSemaforo);
+                    if (distanciaRestanteRua == localSemaforo) {
+                        // Solicitar o status do semáforo
+                        AID semaforo = new AID("semaforo_" + ruaNascimento, AID.ISLOCALNAME);
+                        ACLMessage pedidoStatus = new ACLMessage(ACLMessage.REQUEST);
+                        pedidoStatus.addReceiver(semaforo);
+                        pedidoStatus.setContent("STATUS");
+                        send(pedidoStatus);
+
+                        // Esperar pela resposta do semáforo
+                        ACLMessage resposta = blockingReceive(1000);
+                        if (resposta != null) {
+                            String estadoSemaforo = resposta.getContent();
+                            if (estadoSemaforo.equals("VERDE") || (estadoSemaforo.equals("VERMELHO") && furaSinal)) {
+                                System.out.println("Carro " + placa + " esta atravessando na rua " + ruaNascimento + " com sinal " + estadoSemaforo);
+                                estadoAtual = "ATRAVESSANDO";
+                            } else {
+                                System.out.println("Carro " + placa + " parou no semáforo " + ruaNascimento + " com sinal " + estadoSemaforo);
+                                estadoAtual = "PARADO";
+                            }
+                        } else {
+                            System.out.println("Carro " + placa + " não recebeu resposta do semáforo " + ruaNascimento);
+                        }
+                    }
                 }
             }
         });
@@ -85,5 +107,11 @@ public class CarAgent extends Agent {
         String[] roads = {"N", "S", "E", "W"};
         Random random = new Random();
         return roads[random.nextInt(roads.length)];
+    }
+    
+    private void finalizarCarro() {
+        // Imprimir mensagem de finalização e deletar o agente
+        System.out.println("Carro " + placa + " chegou ao destino e será removido.");
+        doDelete();
     }
 }
