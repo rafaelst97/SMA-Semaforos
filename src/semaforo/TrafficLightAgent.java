@@ -1,10 +1,7 @@
-
 package semaforo;
 
-import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
 public class TrafficLightAgent extends Agent {
@@ -13,19 +10,24 @@ public class TrafficLightAgent extends Agent {
     private int tempoVerde;
     private int tempoVermelho;
     private String estadoAtual = "VERMELHO";
+    private boolean mudandoParaVerde = false; // Nova variável de controle
     
     @Override
     protected void setup() {
         
-        //Leitura dos parametros passados para o agente
         Object[] parametros = getArguments();
-        posicao = (String) parametros[0];
-        tempoVerde = (int) parametros[1];
-        tempoVermelho = (int) parametros[2];
-        //Fim da leitura dos parametros
+        if (parametros != null && parametros.length == 3) {
+            posicao = (String) parametros[0];
+            tempoVerde = (int) parametros[1];
+            tempoVermelho = (int) parametros[2];
+        } else {
+            System.err.println("Parâmetros inválidos para o agente semáforo!");
+            doDelete();
+            return;
+        }
         
         System.out.println("SEMAFORO " + posicao + " INICIADO");
-        
+
         // Comportamento para processar mensagens recebidas
         addBehaviour(new CyclicBehaviour(this) {
             @Override
@@ -33,16 +35,28 @@ public class TrafficLightAgent extends Agent {
                 ACLMessage msg = receive();
                 if (msg != null) {
                     String conteudo = msg.getContent();
-                    if (conteudo.equals("VERDE")) {
-                        estadoAtual = conteudo;
-                    } else if (conteudo.equals("VERMELHO")) {
-                        estadoAtual = conteudo;
-                    } else if (conteudo.equals("STATUS")){
-                        ACLMessage resposta = msg.createReply();
-                        resposta.setPerformative(ACLMessage.INFORM);
-                        resposta.setContent(estadoAtual);
-                        System.out.println("DEBUG " + posicao + '-' + estadoAtual);
-                        send(resposta);
+
+                    switch (conteudo) {
+                        case "VERDE":
+                            estadoAtual = "VERDE";
+                            mudandoParaVerde = true;
+                            System.out.println("SEMAFORO " + posicao + " MUDOU PARA VERDE");
+                            break;
+                        case "VERMELHO":
+                            estadoAtual = "VERMELHO";
+                            mudandoParaVerde = false;
+                            System.out.println("SEMAFORO " + posicao + " MUDOU PARA VERMELHO");
+                            break;
+                        case "STATUS":
+                            ACLMessage resposta = msg.createReply();
+                            resposta.setPerformative(ACLMessage.INFORM);
+                            resposta.setContent(estadoAtual);
+                            send(resposta);
+                            System.out.println("STATUS ENVIADO DO SEMAFORO " + posicao + ": " + estadoAtual);
+                            break;
+                        default:
+                            System.out.println("Mensagem desconhecida recebida pelo semáforo " + posicao + ": " + conteudo);
+                            break;
                     }
                 } else {
                     block();
