@@ -125,6 +125,7 @@ public class CoordinatorAgent extends Agent {
                 public void action() {
                     ACLMessage msg = receive();
                     if (msg != null) {
+                        System.out.println("Mensagem recebida: " + msg.getContent());
                         String[] conteudo = msg.getContent().split(":");
                         if (conteudo[0].equals("INFRACAO")) {
                             String placa = conteudo[1];
@@ -165,6 +166,7 @@ public class CoordinatorAgent extends Agent {
     
     private void esperarGuiInicializada() {
         while (gui == null || !gui.estaInicializada()) {
+            System.out.println("SE PERDEU TOTAL");
             try {
                 Thread.sleep(100); // Espera 100 ms antes de verificar novamente
             } catch (InterruptedException e) {
