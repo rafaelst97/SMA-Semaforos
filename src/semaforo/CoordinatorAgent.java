@@ -10,6 +10,7 @@ import jade.lang.acl.MessageTemplate;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
+import semaforo.CrossroadGUI;
 
 import javax.swing.*;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ public class CoordinatorAgent extends Agent {
     // Lista dos nomes dos semáforos em sentido horário
     private String[] semaforos = {"semaforo_N", "semaforo_E", "semaforo_S", "semaforo_W"};
     private int semaforoAtual = 0;
+    private CrossroadGUI gui = new CrossroadGUI();
 
     @Override
     protected void setup() {
