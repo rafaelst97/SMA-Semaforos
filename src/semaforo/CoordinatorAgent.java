@@ -31,6 +31,8 @@ public class CoordinatorAgent extends Agent {
     @Override
     protected void setup() {
         
+        new Thread(() -> CrossroadGUI.launch(CrossroadGUI.class)).start();
+        
         try {
             ContainerController container = getContainerController();
             
