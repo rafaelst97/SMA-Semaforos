@@ -36,7 +36,7 @@ public class RadarAgent extends Agent {
                         msgPlaca.addReceiver(new AID("coordinator", AID.ISLOCALNAME));
                         msgPlaca.setContent("INFRACAO:" + placaCarro);
                         send(msgPlaca);
-                        System.out.println("Mensagem de infração enviada: " + msgPlaca.getContent());
+                        System.out.println("Mensagem de infracao enviada: " + msgPlaca.getContent());
                     }
                 } else {
                     block();
