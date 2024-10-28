@@ -123,7 +123,7 @@ public class CoordinatorAgent extends Agent {
             addBehaviour(new CyclicBehaviour(this) {
                 @Override
                 public void action() {
-                    ACLMessage msg = receive();
+                    ACLMessage msg = blockingReceive();
                     if (msg != null) {
                         System.out.println("Mensagem recebida: " + msg.getContent());
                         String[] conteudo = msg.getContent().split(":");
