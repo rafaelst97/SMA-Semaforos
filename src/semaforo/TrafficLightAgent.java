@@ -41,6 +41,7 @@ public class TrafficLightAgent extends Agent {
                         ACLMessage resposta = msg.createReply();
                         resposta.setPerformative(ACLMessage.INFORM);
                         resposta.setContent(estadoAtual);
+                        System.out.println("DEBUG " + posicao + '-' + estadoAtual);
                         send(resposta);
                     }
                 } else {

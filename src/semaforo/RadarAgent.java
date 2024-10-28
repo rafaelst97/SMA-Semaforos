@@ -1,5 +1,6 @@
 package semaforo;
 
+import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
@@ -29,6 +30,12 @@ public class RadarAgent extends Agent {
                         placasInfratoras.add(placaCarro);
                         System.out.println("Radar registrou carro infrator com placa: " + placaCarro);
                         System.out.println("Placas registradas ate agora: " + placasInfratoras);
+                        
+                        // Envia a placa ao CoordinatorAgent
+                        ACLMessage msgPlaca = new ACLMessage(ACLMessage.INFORM);
+                        msgPlaca.addReceiver(new AID("coordinator", AID.ISLOCALNAME));
+                        msgPlaca.setContent("INFRACAO:" + placaCarro);
+                        send(msgPlaca);
                     }
                 } else {
                     block();

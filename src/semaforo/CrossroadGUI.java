@@ -1,7 +1,9 @@
 package semaforo;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.control.TextArea;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
@@ -9,11 +11,15 @@ import javafx.stage.Stage;
 
 public class CrossroadGUI extends Application {
 
+    private static CrossroadGUI instance; // Instância única
+    private TextArea listaInfracoes;
+
     @Override
     public void start(Stage primaryStage) {
+        instance = this; // Define a instância única
+
         Pane pane = new Pane();
-        
-        // Dimensões da janela
+
         int width = 800;
         int height = 600;
 
@@ -25,8 +31,15 @@ public class CrossroadGUI extends Application {
         Rectangle estradaHorizontal = new Rectangle(0, height / 2 - 50, width, 100);
         estradaHorizontal.setFill(Color.GRAY);
 
-        // Adiciona as estradas ao painel
-        pane.getChildren().addAll(estradaVertical, estradaHorizontal);
+        // Área de texto para mostrar a lista de placas multadas
+        listaInfracoes = new TextArea();
+        listaInfracoes.setEditable(false);
+        listaInfracoes.setPrefSize(250, 200);
+        listaInfracoes.setLayoutX(10);
+        listaInfracoes.setLayoutY(10);
+
+        // Adiciona os elementos ao painel
+        pane.getChildren().addAll(estradaVertical, estradaHorizontal, listaInfracoes);
 
         // Configuração da cena
         Scene scene = new Scene(pane, width, height);
@@ -35,8 +48,18 @@ public class CrossroadGUI extends Application {
         primaryStage.show();
     }
 
-    // Método principal para iniciar a aplicação JavaFX
-    public static void main(String[] args) {
-        launch(args);
+    // Método estático para obter a instância única
+    public static CrossroadGUI getInstance() {
+        return instance;
+    }
+
+    public void adicionarInfracao(String placa) {
+        if (listaInfracoes != null) {
+            Platform.runLater(() -> listaInfracoes.appendText(placa + "\n"));
+        }
+    }
+
+    public boolean estaInicializada() {
+        return listaInfracoes != null;
     }
 }

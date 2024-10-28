@@ -23,6 +23,7 @@ public class CoordinatorAgent extends Agent {
     public static final int TEMPO_VERDE = 3000;
     public static final int MAX_CARROS = 5;
     private Random random = new Random();
+    private CrossroadGUI gui;
     
     // Lista dos nomes dos semáforos em sentido horário
     private String[] semaforos = {"semaforo_N", "semaforo_E", "semaforo_S", "semaforo_W"};
@@ -31,7 +32,17 @@ public class CoordinatorAgent extends Agent {
     @Override
     protected void setup() {
         
-        new Thread(() -> CrossroadGUI.launch(CrossroadGUI.class)).start();
+        // Inicia a interface gráfica e guarda a referência
+        new Thread(() -> {
+            javafx.application.Application.launch(CrossroadGUI.class);
+        }).start();
+        
+        try {
+            Thread.sleep(2000); // Aguarda até 2 segundos para garantir a inicialização
+            gui = CrossroadGUI.getInstance(); // Obtém a instância da GUI
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         
         try {
             ContainerController container = getContainerController();
@@ -108,6 +119,34 @@ public class CoordinatorAgent extends Agent {
                 }
             });
             
+            // Adiciona comportamento para receber mensagens do RadarAgent
+            addBehaviour(new CyclicBehaviour(this) {
+                @Override
+                public void action() {
+                    ACLMessage msg = receive();
+                    if (msg != null) {
+                        String[] conteudo = msg.getContent().split(":");
+                        if (conteudo[0].equals("INFRACAO")) {
+                            String placa = conteudo[1];
+                            System.out.println("Placa multada recebida: " + placa);
+                            
+                            // Aguarda a inicialização da GUI antes de adicionar a placa
+                            esperarGuiInicializada();
+                            
+                            // Atualiza a lista de placas multadas na GUI
+                            if (gui != null) {
+                                System.out.println("Atualizando GUI com placa: " + placa);
+                                gui.adicionarInfracao(placa);
+                            } else {
+                                System.out.println("GUI não está inicializada corretamente.");
+                            }
+                        }
+                    } else {
+                        block();
+                    }
+                }
+            });
+            
         } catch (Exception e){
             e.printStackTrace();
         }
@@ -121,6 +160,16 @@ public class CoordinatorAgent extends Agent {
             carro.start();
         } catch (StaleProxyException e) {
             e.printStackTrace();
+        }
+    }
+    
+    private void esperarGuiInicializada() {
+        while (gui == null || !gui.estaInicializada()) {
+            try {
+                Thread.sleep(100); // Espera 100 ms antes de verificar novamente
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
