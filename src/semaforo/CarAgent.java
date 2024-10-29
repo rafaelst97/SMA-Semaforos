@@ -107,6 +107,11 @@ public class CarAgent extends Agent {
                             msgRadar.addReceiver(radar);
                             msgRadar.setContent(placa);
                             send(msgRadar);
+                            
+                            System.out.println("Mensagem enviada ao Radar: " + msgRadar.getContent());
+                            
+                            // Adiciona um tempo de espera para garantir o recebimento
+                            doWait(200);
 
                             estadoAtual = "ATRAVESSANDO";
                         } else {

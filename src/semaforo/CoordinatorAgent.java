@@ -165,7 +165,7 @@ public class CoordinatorAgent extends Agent {
             // Atualiza a lista de placas multadas na GUI
             if (gui != null) {
                 System.out.println("Atualizando GUI com placa: " + placa);
-                gui.adicionarInfracao(placa);
+//                gui.adicionarInfracao(placa);
             } else {
                 System.out.println("GUI não está inicializada corretamente.");
             }
