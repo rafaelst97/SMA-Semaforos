@@ -11,6 +11,7 @@ public class TrafficLightAgent extends Agent {
     private int tempoVermelho;
     private String estadoAtual = "VERMELHO";
     private boolean mudandoParaVerde = false; // Nova variável de controle
+    private CrossroadGUI gui; // Referência para a GUI
     
     @Override
     protected void setup() {
@@ -27,6 +28,9 @@ public class TrafficLightAgent extends Agent {
         }
         
         System.out.println("SEMAFORO " + posicao + " INICIADO");
+        
+        // Obtém a instância da GUI
+        gui = CrossroadGUI.getInstance();
 
         // Comportamento para processar mensagens recebidas
         addBehaviour(new CyclicBehaviour(this) {
@@ -41,11 +45,13 @@ public class TrafficLightAgent extends Agent {
                             estadoAtual = "VERDE";
                             mudandoParaVerde = true;
                             System.out.println("SEMAFORO " + posicao + " MUDOU PARA VERDE");
+                            atualizarSemaforoGUI();
                             break;
                         case "VERMELHO":
                             estadoAtual = "VERMELHO";
                             mudandoParaVerde = false;
                             System.out.println("SEMAFORO " + posicao + " MUDOU PARA VERMELHO");
+                            atualizarSemaforoGUI();
                             break;
                         case "STATUS":
                             ACLMessage resposta = msg.createReply();
@@ -63,5 +69,14 @@ public class TrafficLightAgent extends Agent {
                 }
             }
         });
+    }
+    
+    // Método para atualizar a GUI com a cor do semáforo atual
+    private void atualizarSemaforoGUI() {
+        if (gui != null) {
+            gui.atualizarSemaforo(posicao, estadoAtual);
+        } else {
+            System.err.println("GUI não está inicializada.");
+        }
     }
 }
