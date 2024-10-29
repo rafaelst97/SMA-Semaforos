@@ -15,9 +15,9 @@ import java.util.Random;
 public class CoordinatorAgent extends Agent {
     
     // CONSTANTES DO SISTEMA
-    public static final int TEMPO_VERMELHO = 5000;
-    public static final int TEMPO_VERDE = 3000;
-    public static final int MAX_CARROS = 1;
+    public static final int TEMPO_VERMELHO = 10000;
+    public static final int TEMPO_VERDE = 6000;
+    public static final int MAX_CARROS = 5;
     private Random random = new Random();
     private CrossroadGUI gui;
 

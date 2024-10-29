@@ -8,21 +8,31 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
+import javafx.scene.text.Text;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class CrossroadGUI extends Application {
 
     private static CrossroadGUI instance; // Instância única
     private TextArea listaInfracoes;
     private Rectangle semaforoNorte, semaforoSul, semaforoLeste, semaforoOeste;
+    private Pane pane; // Painel principal
+    private Map<String, Rectangle> carros; // Mapa para os carros na GUI
+    private Map<String, Text> textosPlacas; // Mapa para os textos das placas
+
 
     @Override
     public void start(Stage primaryStage) {
         instance = this; // Define a instância única
 
-        Pane pane = new Pane();
+        pane = new Pane();
+        carros = new HashMap<>(); // Inicializa o mapa dos carros
+        textosPlacas = new HashMap<>(); // Inicializa o mapa dos textos das placas
 
         int width = 800;
-        int height = 600;
+        int height = 800;
 
         // Estrada vertical
         Rectangle estradaVertical = new Rectangle(width / 2 - 50, 0, 100, height);
@@ -95,6 +105,78 @@ public class CrossroadGUI extends Application {
         if (listaInfracoes != null) {
             Platform.runLater(() -> listaInfracoes.appendText(placa + "\n"));
         }
+    }
+    
+    public void adicionarCarro(String placa, String direcao, boolean furaSinal) {
+        Platform.runLater(() -> {
+            Color corCarro = furaSinal ? Color.RED : Color.BLUE; // Vermelho para infratores, azul para outros
+            Rectangle carro = new Rectangle(30, 15, corCarro); // Cria o carro
+            Text textoPlaca = new Text(placa); // Texto com a placa
+            textoPlaca.setFill(Color.WHITE);
+
+            // Posiciona o carro na direção inicial
+            switch (direcao) {
+                case "N": // Rua Norte
+                    carro.setLayoutX(390); // Centraliza na via vertical
+                    carro.setLayoutY(0); // Começa no topo
+                    textoPlaca.setLayoutX(390);
+                    textoPlaca.setLayoutY(-10);
+                    break;
+                case "S": // Rua Sul
+                    carro.setLayoutX(390); // Centraliza na via vertical
+                    carro.setLayoutY(780); // Começa na parte inferior
+                    textoPlaca.setLayoutX(390);
+                    textoPlaca.setLayoutY(770);
+                    break;
+                case "E": // Rua Leste
+                    carro.setLayoutX(780); // Começa no lado direito
+                    carro.setLayoutY(390); // Centraliza na via horizontal
+                    textoPlaca.setLayoutX(780);
+                    textoPlaca.setLayoutY(380);
+                    break;
+                case "W": // Rua Oeste
+                    carro.setLayoutX(0); // Começa no lado esquerdo
+                    carro.setLayoutY(390); // Centraliza na via horizontal
+                    textoPlaca.setLayoutX(0);
+                    textoPlaca.setLayoutY(380);
+                    break;
+            }
+
+            // Adiciona o carro e a placa ao painel
+            pane.getChildren().addAll(carro, textoPlaca);
+            carros.put(placa, carro);
+            textosPlacas.put(placa, textoPlaca);
+        });
+    }
+    
+    // Método para mover um carro na GUI
+    public void moverCarro(String placa, double deltaX, double deltaY) {
+        Platform.runLater(() -> {
+            Rectangle carro = carros.get(placa);
+            Text textoPlaca = textosPlacas.get(placa);
+            if (carro != null && textoPlaca != null) {
+                // Move o carro
+                carro.setLayoutX(carro.getLayoutX() + deltaX);
+                carro.setLayoutY(carro.getLayoutY() + deltaY);
+
+                // Move o texto da placa junto com o carro
+                textoPlaca.setLayoutX(textoPlaca.getLayoutX() + deltaX);
+                textoPlaca.setLayoutY(textoPlaca.getLayoutY() + deltaY);
+            }
+        });
+    }
+    
+    // Método para remover um carro da GUI
+    public void removerCarro(String placa) {
+        Platform.runLater(() -> {
+            Rectangle carro = carros.get(placa);
+            Text textoPlaca = textosPlacas.get(placa);
+            if (carro != null && textoPlaca != null) {
+                pane.getChildren().removeAll(carro, textoPlaca); // Remove o carro e o texto
+                carros.remove(placa);
+                textosPlacas.remove(placa);
+            }
+        });
     }
 
     public boolean estaInicializada() {

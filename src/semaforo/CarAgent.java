@@ -19,11 +19,12 @@ public class CarAgent extends Agent {
     private boolean furaSinal;
     private String ruaNascimento;
     private String direcao;
-    private int distanciaRestanteRua = 200;
-    private int localSemaforo = 60;
+    private int distanciaRestanteRua = 600;
+    private int localSemaforo = 300;
     private int distanciaParaSemaforo = distanciaRestanteRua - localSemaforo;
     private String estadoAtual = "MOVENDO-SE";
     private Random random = new Random();
+    private CrossroadGUI gui; // Referência para a GUI
 
     @Override
     protected void setup() {
@@ -33,13 +34,40 @@ public class CarAgent extends Agent {
         System.out.println("Ele vai furar sinal? " + furaSinal);
         System.out.println("Rua que nasce " + ruaNascimento);
         
+        // Obtém a instância da GUI
+        gui = CrossroadGUI.getInstance();
+        gui.adicionarCarro(placa, ruaNascimento, furaSinal); // Adiciona o carro à GUI
+        
         addBehaviour(new TickerBehaviour(this, 1000) {
             @Override
             protected void onTick() {
                 if (distanciaRestanteRua > 0) {
                     if (estadoAtual != "PARADO") {
+                        
+                        // Define a direção de movimento com base na rua de nascimento
+                        double deltaX = 0, deltaY = 0;
+                        switch (ruaNascimento) {
+                            case "N": // Norte
+                                deltaY = 10; // Move para baixo
+                                break;
+                            case "S": // Sul
+                                deltaY = -10; // Move para cima
+                                break;
+                            case "E": // Leste
+                                deltaX = -10; // Move para a esquerda
+                                break;
+                            case "W": // Oeste
+                                deltaX = 10; // Move para a direita
+                                break;
+                        }
+                        
+                        // Atualiza a posição do carro na GUI
+                        gui.moverCarro(placa, deltaX, deltaY);
+                        
                         distanciaRestanteRua -= 10;
+//                        distanciaParaSemaforo -= 5;
                         distanciaParaSemaforo = distanciaRestanteRua - localSemaforo;
+                        
                         if (distanciaRestanteRua <= 0) {
                             System.out.println("FINALIZANDO CARRO " + placa);
                             finalizarCarro();
@@ -135,6 +163,7 @@ public class CarAgent extends Agent {
         // Imprimir mensagem de finalização e deletar o agente
         System.out.println("Carro " + placa + " chegou ao destino e sera removido.");
         this.criarCarro(container);
+        gui.removerCarro(placa);
         doDelete();
     }
     
